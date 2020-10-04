@@ -67,7 +67,7 @@ class SparkProcessor:
         song_data_df = self.spark.createDataFrame(Row(**song_dict) for song_dict in song_data_list)
 
         # process df to retrieve music information
-        song_info_df = song_data_df.select('id', 'source_id', 'name', 'artist', 'year')
+        song_info_df = song_data_df.select('id', 'source_id', 'name', 'artist', 'year', 'popularity', 'url')
         song_info_df = song_info_df.withColumn('source', lit(self.data_source))
 
         # build song vector df
@@ -76,13 +76,12 @@ class SparkProcessor:
         song_vec_df = song_vec_df.select('id', 'vector')
         song_vec_df = song_vec_df.withColumn('method', lit('gauss'))
 
-        print(song_vec_df)
         # write vectors to the similarity search index
         self.write_to_hnswlib(song_vec_df)
 
         # write dfs to db
-        #self.db_writer.write(song_info_df, 'song_info', mode='append')
-        #self.db_writer.write(song_vec_df, 'song_vectors', mode='append')
+        self.db_writer.write(song_info_df, 'song_info', mode='append')
+        self.db_writer.write(song_vec_df, 'song_vectors', mode='append')
 
     def write_to_hnswlib(self, vec_df):
 
