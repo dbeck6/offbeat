@@ -32,7 +32,7 @@ class SparkProcessor:
     Distributes songs derived from  Million Song Dataset or Spotify API for processing
     across Spark cluster to extract features that will be written to Postgres DB.
     '''
-    def __init__(self, data_source, file_path=''):
+    def __init__(self, data_source, folder=''):
 
         self.data_source = data_source
         self.fetcher = S3Interface()
@@ -54,7 +54,7 @@ class SparkProcessor:
 
         if (data_source == 'msd'):
             # grabbing from file path on s3 and downloading to df
-            song_data_df = self.fetcher.get_keys(file_path)
+            song_data_df = self.fetcher.get_keys(folder)
             self.fetcher.download_files(song_data_df)
             self.interface = MSDInterface()
         elif (data_source == 'spotify'):
@@ -89,7 +89,7 @@ class SparkProcessor:
     def write_to_hnswlib(self, vec_df):
 
         index_filename = 'index.bin'
-        num_elements = 1500000
+        num_elements = 2000000
         sample_vec = vec_df.limit(1).collect()[0].vector
         dim = len(sample_vec)
 
@@ -97,9 +97,11 @@ class SparkProcessor:
             # if index exists, reinitate and load
             index = hnswlib.Index(space = 'cosine', dim = dim)
             index.load_index(index_filename, max_elements = num_elements)
+            index.set_ef(50)
         else:
             index = hnswlib.Index(space = 'cosine', dim = dim)
             index.init_index(max_elements = num_elements, ef_construction = 100, M = 64)
+            index.set_ef(50)
 
         vec_table = vec_df.select('id', 'vector').collect()
         ids_list = [row.id for row in vec_table]
@@ -118,8 +120,8 @@ def get_parser():
     parser = argparse.ArgumentParser(
         description='Processes songs retrieved from either MSD or Spotify'
     )
-    parser.add_argument('-o', '--file_path',
-        help='Specify the s3 file path of the list of songs',
+    parser.add_argument('-o', '--folder',
+        help='Specify the s3 folder of the list of songs',
         default='', type=str
     )
     parser.add_argument('-s', '--source',  
@@ -134,7 +136,7 @@ def main():
 
     parser = get_parser()
     args = parser.parse_args()
-    spark_processor = SparkProcessor(data_source=args.source, file_path=args.file_path)
+    spark_processor = SparkProcessor(data_source=args.source, folder=args.folder)
     spark_processor.run_processing()
 
 if (__name__ == '__main__'):

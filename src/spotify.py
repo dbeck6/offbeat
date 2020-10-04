@@ -2,6 +2,7 @@ import spotipy
 import random
 from spotipy.oauth2 import SpotifyClientCredentials
 import tekore as tk
+from time import time
 
 
 class SpotifyInterface:
@@ -37,10 +38,10 @@ class SpotifyInterface:
         tracks, = self.tk.search(f'{track} artist:{artist}', types=('track',))
         try:
             track = tracks.items[0]
-            track_id = track.id
+            song_id = track.id
             popularity = track.popularity
             url = track.external_urls.get('spotify')
-            track_info = {'spot_id': track_id, 'popularity': popularity, 'url': url}
+            track_info = {'source_id': song_id, 'popularity': popularity, 'url': url}
         except:
             track_info = None
 
@@ -96,7 +97,7 @@ class SpotifyInterface:
 
         track_info = self.extract_track_info(track_id)
         track_feats = self.extract_track_features(track_id)
-        track_data = {'id': track_id, **track_info, **track_feats}
+        track_data = {'source_id': track_id, **track_info, **track_feats}
         
         return track_data
 
@@ -104,11 +105,12 @@ class SpotifyInterface:
 
         track = self.sp.track(track_id)
         track_name = track['name'].lower()
-        track_year = track['album']['release_date'].split('-')[0]
+        track_year = int(track['album']['release_date'].split('-')[0])
         artist_name = track['artists'][0]['name'].lower()
         popularity = track['popularity']
         url = track['external_urls'].get('spotify')
-        track_info = {'name': track_name, 'artist': artist_name, 'year': track_year, 'popularity': popularity, 'url': url}
+        song_int_id = track_year * track['duration_ms']
+        track_info = {'id': song_int_id, 'name': track_name, 'artist': artist_name, 'year': track_year, 'popularity': popularity, 'url': url}
         
         return track_info
 
@@ -134,6 +136,7 @@ def main():
     songs = si.get_playlists(num_items=1, num_tracks=1)
     print(len(songs))
     print(songs[0].keys())
+    print(songs[0].get('id'))
 
 if (__name__ == '__main__'):
     
