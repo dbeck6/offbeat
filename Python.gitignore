@@ -1,5 +1,6 @@
 # Project specific files
 all_msd_files.csv
+tekore.cfg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
