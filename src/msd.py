@@ -16,7 +16,7 @@ class MSDInterface:
         files_list = self.get_files()
         songs = [self.process_song(file) for file in files_list]
         songs = [s for s in songs if s is not None]
-        print(len(songs))
+        #print(len(songs))
 
         self.clear_tmp()
 
@@ -38,7 +38,7 @@ class MSDInterface:
         song_data = h5.open_h5_file_read(song_path)
 
 	# process file
-
+        print(str(h5.get_song_id(song_data).decode('UTF-8')) + '   ' + str(h5.get_song_id(song_data)))
         song_id = h5.get_song_id(song_data).decode('UTF-8')
         song_int_id = int(h5.get_track_7digitalid(song_data))
         song_name = h5.get_title(song_data).decode('UTF-8').lower()
@@ -60,6 +60,7 @@ class MSDInterface:
         song_dict = {'id': song_int_id, 'source_id': song_id, 'name': song_name, 
                     'artist': artist_name, 'year': song_year, 'timbre': timbre, 
                     'chroma': chroma, **track_info}
+
         return song_dict
 
     def ndarray_list_to_ndlist(self, ndarry_list):

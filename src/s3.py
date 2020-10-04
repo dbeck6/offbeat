@@ -24,7 +24,7 @@ class S3Interface:
 		df.to_csv('all_msd_files.csv', index=False)
 
 	def download_files(self, df):
-		# download hdf5 files from s3 and provide list for processing
+		# download hdf5 files from s3
 		client = boto3.client('s3')
 		df = df.apply(lambda row: client.download_file(Bucket=self.bucket, 
 								Key=row['s3_object'], 

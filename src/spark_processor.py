@@ -11,6 +11,7 @@ from pyspark.sql import SparkSession
 from msd import MSDInterface
 from postgres import PostgresConnector
 from s3 import S3Interface
+from spotify import SpotifyInterface
 from vector import vector_processor
 
 from pyspark import SparkFiles
@@ -31,10 +32,9 @@ class SparkProcessor:
     Distributes songs derived from  Million Song Dataset or Spotify API for processing
     across Spark cluster to extract features that will be written to Postgres DB.
     '''
-    def __init__(self, data_source, file_path):
+    def __init__(self, data_source, file_path=''):
 
         self.data_source = data_source
-        self.file_path = file_path
         self.fetcher = S3Interface()
 
         self.spark = SparkSession.builder.appName('Offbeat').getOrCreate()
@@ -53,6 +53,9 @@ class SparkProcessor:
         self.db_writer = PostgresConnector()
 
         if (data_source == 'msd'):
+            # grabbing from file path on s3 and downloading to df
+            song_data_df = self.fetcher.get_keys(file_path)
+            self.fetcher.download_files(song_data_df)
             self.interface = MSDInterface()
         elif (data_source == 'spotify'):
             self.interface = SpotifyInterface()
@@ -60,8 +63,8 @@ class SparkProcessor:
     def run_processing(self):
 
         # if grabbing from file path on s3 and downloading to df
-        song_data_df = self.fetcher.get_keys(self.file_path)
-        self.fetcher.download_files(song_data_df)
+        #song_data_df = self.fetcher.get_keys(self.file_path)
+        #self.fetcher.download_files(song_data_df)
         song_data_list = self.interface.get_music()
 
         song_data_df = self.spark.createDataFrame(Row(**song_dict) for song_dict in song_data_list)
@@ -85,7 +88,7 @@ class SparkProcessor:
 
     def write_to_hnswlib(self, vec_df):
 
-        index_filename = 'msd_index.bin'
+        index_filename = 'index.bin'
         num_elements = 1500000
         sample_vec = vec_df.limit(1).collect()[0].vector
         dim = len(sample_vec)

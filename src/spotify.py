@@ -19,7 +19,7 @@ class SpotifyInterface:
         token = tk.refresh_user_token(*conf[:2], conf[3])
         self.tk = tk.Spotify(token)
 
-    def get_music(self, num_songs=50, offset=0, all_songs=True):
+    def get_music(self, num_songs=10, offset=0, all_songs=True):
 
         num_items = num_songs//2 + 1
         album_songs = self.get_albums(num_items=num_items)
@@ -33,18 +33,20 @@ class SpotifyInterface:
         return songs
 
     def search_track_info(self, artist, track):
+        
         tracks, = self.tk.search(f'{track} artist:{artist}', types=('track',))
         try:
             track = tracks.items[0]
+            track_id = track.id
             popularity = track.popularity
             url = track.external_urls.get('spotify')
-            track_info = {'popularity': popularity, 'url': url}
+            track_info = {'spot_id': track_id, 'popularity': popularity, 'url': url}
         except:
             track_info = None
 
         return track_info
 
-    def get_albums(self, num_items=20, num_tracks=float('Inf')):
+    def get_albums(self, num_items=10, num_tracks=float('Inf')):
         
         new_releases = self.sp.new_releases(limit=num_items)
         new_albums = new_releases['albums']['items']
@@ -67,7 +69,7 @@ class SpotifyInterface:
                 
         return track_data
 
-    def get_playlists(self, num_items=20, num_tracks=float('Inf')):
+    def get_playlists(self, num_items=10, num_tracks=float('Inf')):
 
         featured_playlists = self.sp.featured_playlists(limit=num_items)
         new_playlists = featured_playlists['playlists']['items']
@@ -105,8 +107,9 @@ class SpotifyInterface:
         track_year = track['album']['release_date'].split('-')[0]
         artist_name = track['artists'][0]['name'].lower()
         popularity = track['popularity']
-        url = track['external_urls']
+        url = track['external_urls'].get('spotify')
         track_info = {'name': track_name, 'artist': artist_name, 'year': track_year, 'popularity': popularity, 'url': url}
+        
         return track_info
 
     def extract_track_features(self, track_id):
