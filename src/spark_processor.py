@@ -25,17 +25,21 @@ from pyspark.sql.functions import udf
 from pyspark.sql.functions import monotonically_increasing_id
 from pyspark.sql.functions import row_number
 
-from time import sleep
 
 class SparkProcessor:
     '''
     Distributes songs derived from  Million Song Dataset or Spotify API for processing
     across Spark cluster to extract features that will be written to Postgres DB.
     '''
-    def __init__(self, data_source, folder=''):
+    def __init__(self, data_source, num_songs, songs_offset=0, folder='', playback=''):
+
+        self.num_songs = num_songs
+        self.songs_offset = songs_offset
 
         self.data_source = data_source
+        self.folder = folder
         self.fetcher = S3Interface()
+        self.playback = playback
 
         self.spark = SparkSession.builder.appName('Offbeat').getOrCreate()
         self.spark.sparkContext.addPyFile('vector.py')
@@ -52,21 +56,20 @@ class SparkProcessor:
 
         self.db_writer = PostgresConnector()
 
-        if (data_source == 'msd'):
+        if (self.data_source == 'msd'):
             # grabbing from file path on s3 and downloading to df
-            song_data_df = self.fetcher.get_keys(folder)
-            self.fetcher.download_files(song_data_df)
+            #song_data_df = self.fetcher.get_keys(folder)
+            #self.fetcher.download_files(song_data_df)
             self.interface = MSDInterface()
-        elif (data_source == 'spotify'):
+        elif (self.data_source == 'spotify'):
             self.interface = SpotifyInterface()
 
     def run_processing(self):
 
-        # if grabbing from file path on s3 and downloading to df
-        #song_data_df = self.fetcher.get_keys(self.file_path)
-        #self.fetcher.download_files(song_data_df)
-        song_data_list = self.interface.get_music()
-
+        if (self.data_source == 'msd'):
+            song_data_list = self.interface.get_music(num_songs=self.num_songs, offset=self.songs_offset)
+        elif (self.data_source == 'spotify'):
+            song_data_list = self.interface.get_music(num_songs=self.num_songs, offset=self.songs_offset, playback=self.playback)
         song_data_df = self.spark.createDataFrame(Row(**song_dict) for song_dict in song_data_list)
 
         # process df to retrieve music information
@@ -112,7 +115,7 @@ class SparkProcessor:
         index.add_items(vecs_arr, ids_arr)
         # Query the elements for themselves and measure recall:
         labels, distances = index.knn_query(vecs_arr, k=1)
-        print("Recall for the first batch:", np.mean(labels.reshape(-1) == ids_arr.reshape(-1)), "\n")
+        print("Recall for this batch:", np.mean(labels.reshape(-1) == ids_arr.reshape(-1)), "\n")
         index.save_index(index_filename)
 
 def get_parser():
@@ -120,7 +123,14 @@ def get_parser():
     parser = argparse.ArgumentParser(
         description='Processes songs retrieved from either MSD or Spotify'
     )
-    parser.add_argument('-o', '--folder',
+    parser.add_argument('-n', '--number', 
+        help='Specify the number of songs to retrieve from the data source', 
+        required=True, type=int
+    )
+    parser.add_argument('-o', '--offset',
+        help='Specify the offset from the beginning of the list of songs',
+        default=0, type=int)
+    parser.add_argument('-f', '--folder',
         help='Specify the s3 folder of the list of songs',
         default='', type=str
     )
@@ -129,6 +139,10 @@ def get_parser():
         choices=['msd', 'spotify'],
         required=True, type=str
     )
+    parser.add_argument('-p', '--playback',
+        help='Select either "recent" or "playlist" as the listening source',
+        default='', type=str
+    )
 
     return parser
 
@@ -136,7 +150,11 @@ def main():
 
     parser = get_parser()
     args = parser.parse_args()
-    spark_processor = SparkProcessor(data_source=args.source, folder=args.folder)
+    spark_processor = SparkProcessor(num_songs=args.number, 
+                                songs_offset=args.offset, 
+                                data_source=args.source, 
+                                folder=args.folder,
+                                playback=args.playback)
     spark_processor.run_processing()
 
 if (__name__ == '__main__'):

@@ -11,20 +11,22 @@ class MSDInterface:
     Retrieves song data from the Million Song Dataset.
     '''
 
-    def get_music(self):
+    def get_music(self, num_songs=50, offset=0):
 
         files_list = self.get_files()
+        files_list = files_list[offset : offset + num_songs]
+        print(len(files_list))
+
         songs = [self.process_song(file) for file in files_list]
         songs = [s for s in songs if s is not None]
-        #print(len(songs))
 
-        self.clear_tmp()
+        #self.clear_tmp()
 
         return songs
 
     def get_files(self):
 
-        root_path = '/home/ubuntu/tmp'
+        root_path = '/mnt/snap/data/'
         files_list = []
 
         for root, dirs, files in os.walk(root_path):
@@ -38,7 +40,6 @@ class MSDInterface:
         song_data = h5.open_h5_file_read(song_path)
 
 	# process file
-        #song_id = h5.get_song_id(song_data).decode('UTF-8')
         song_int_id = int(h5.get_track_7digitalid(song_data))
         song_name = h5.get_title(song_data).decode('UTF-8').lower()
         artist_name = h5.get_artist_name(song_data).decode('UTF-8').lower()
@@ -63,9 +64,7 @@ class MSDInterface:
         return song_dict
 
     def ndarray_list_to_ndlist(self, ndarry_list):
-
         ndlist = [ndarr.tolist() for ndarr in ndarry_list]
-
         return ndlist
 
     def clear_tmp(self):

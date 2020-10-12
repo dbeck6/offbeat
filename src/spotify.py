@@ -1,6 +1,3 @@
-import spotipy
-import random
-from spotipy.oauth2 import SpotifyClientCredentials
 import tekore as tk
 from time import time
 
@@ -14,23 +11,20 @@ class SpotifyInterface:
 
     def __init__(self):
         
-        self.sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials())
         file = 'tekore.cfg'
         conf = tk.config_from_file(file, return_refresh=True)
         token = tk.refresh_user_token(*conf[:2], conf[3])
         self.tk = tk.Spotify(token)
 
-    def get_music(self, num_songs=10, offset=0, all_songs=True):
+    def get_music(self, num_songs=10, offset=0, playback='recent'):
 
-        num_items = num_songs//2 + 1
-        album_songs = self.get_albums(num_items=num_items)
-        playlist_songs = self.get_playlists(num_items=num_items)
-        songs = album_songs + playlist_songs
-        if (not all_songs and len(songs) > num_songs):
-            random.seed(0)
-            random.shuffle(songs)
-            songs = songs[offset : offset + num_songs]
-        
+        if playback == 'recent':
+            songs = self.get_recent_playback(num_songs) 
+        elif playback == 'playlist':
+            songs = self.get_user_playlists(num_tracks=num_songs)
+        else:
+            return None
+
         return songs
 
     def search_track_info(self, artist, track):
@@ -47,96 +41,84 @@ class SpotifyInterface:
 
         return track_info
 
-    def get_albums(self, num_items=10, num_tracks=float('Inf')):
+    def get_recent_playback(self, num_items=20, num_tracks=float('Inf')):
         
-        new_releases = self.sp.new_releases(limit=num_items)
-        new_albums = new_releases['albums']['items']
+        playback = self.tk.playback_recently_played(limit=num_items)
         
         track_data = []
-        for album_item in new_albums:
-            
-            album_id = album_item['id']
-            album = self.sp.album(album_id)
-            tracks = album['tracks']['items']
+        for i in range(num_items):
 
-            for track in tracks:
-                
-                track_id = track['id']
-                new_track_data = self.process_track(track_id)
-                track_data.append(new_track_data)
-
-                if (len(track_data) >= num_tracks):
-                    return track_data
+            track = playback.items[i].track
+            new_track_data = self.process_track(track)
+            track_data.append(new_track_data)
                 
         return track_data
 
-    def get_playlists(self, num_items=10, num_tracks=float('Inf')):
+    def get_user_playlists(self, num_items=20, num_tracks=100, index=0):
 
-        featured_playlists = self.sp.featured_playlists(limit=num_items)
-        new_playlists = featured_playlists['playlists']['items']
-               
+        playlist = self.tk.followed_playlists(limit=num_items).items[index]
+        playlist = self.tk.playlist_items(playlist.id, limit=num_tracks)
+        
         track_data = []
-        for playlist_item in new_playlists:
+        for i in range(num_tracks):
 
-            playlist_id = playlist_item['id']
-            playlist = self.sp.user_playlist_tracks(user=None, playlist_id=playlist_id)
-            playlist_items = playlist['items']
-
-            for item in playlist_items:
-
-                track_id = item['track']['id']
-                new_track_data = self.process_track(track_id)
-                track_data.append(new_track_data)
-
-                if (len(track_data) >= num_tracks):
-                    return track_data
-
-        return track_data
-
-    def process_track(self, track_id):
-
-        track_info = self.extract_track_info(track_id)
-        track_feats = self.extract_track_features(track_id)
-        track_data = {'source_id': track_id, **track_info, **track_feats}
+            track = playlist.items[i].track
+            new_track_data = self.process_track(track)
+            track_data.append(new_track_data)
         
         return track_data
 
-    def extract_track_info(self, track_id):
+    def process_track(self, track):
 
-        track = self.sp.track(track_id)
-        track_name = track['name'].lower()
-        track_year = int(track['album']['release_date'].split('-')[0])
-        artist_name = track['artists'][0]['name'].lower()
-        popularity = track['popularity']
-        url = track['external_urls'].get('spotify')
-        song_int_id = track_year * track['duration_ms']
-        track_info = {'id': song_int_id, 'name': track_name, 'artist': artist_name, 'year': track_year, 'popularity': popularity, 'url': url}
+        track_info = self.extract_track_info(track)
+        track_feats = self.extract_track_features(track_info.get('source_id'))
+        track_data = {**track_info, **track_feats}
+
+        return track_data
+
+    def extract_track_info(self, track):
+
+        track_id = track.id
+        track_name = track.name.lower()
+        track_year = int(track.album.release_date.split('-')[0])
+        artist_name = track.artists[0].name.lower()
+        popularity = track.popularity
+        url = track.external_urls.get('spotify')
+        song_int_id = track_year * track.duration_ms
+        track_info = {'source_id': track_id, 'id': song_int_id, 'name': track_name, 'artist': artist_name, 'year': track_year, 'popularity': popularity, 'url': url}
         
         return track_info
 
     def extract_track_features(self, track_id):
 
-        analysis = self.sp.audio_analysis(track_id)
-        segments = analysis['segments']
-        
+        segments = self.tk.track_audio_analysis(track_id).segments
+
         timbre = []*len(segments)
         chroma = []*len(segments)
         for segment in segments:
 
-            timbre.append(segment['timbre'])
-            chroma.append(segment['pitches'])
+            timbre.append(segment.timbre.asbuiltin())
+            chroma.append(segment.pitches.asbuiltin())
 
         track_features = {'timbre': timbre, 'chroma': chroma}
+        
         return track_features
 
 
 def main():
 
     si = SpotifyInterface()
-    songs = si.get_playlists(num_items=1, num_tracks=1)
+    songs = si.get_user_playlists(num_items=10, num_tracks=10)
     print(len(songs))
     print(songs[0].keys())
+    print(songs[0].get('name'))
+    print(songs[0].get('source_id'))
     print(songs[0].get('id'))
+    print(songs[0].get('year'))
+    print(songs[0].get('artist'))
+    print(songs[0].get('popularity'))
+    print(songs[0].get('url'))
+    #print(songs[0].get('chroma'))
 
 if (__name__ == '__main__'):
     
