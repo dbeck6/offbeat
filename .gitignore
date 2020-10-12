@@ -2,6 +2,8 @@
 nohup.out
 index.bin
 tekore.cfg
+.spotify_caches
+__pycache__
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
