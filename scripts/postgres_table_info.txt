@@ -6,9 +6,9 @@ CREATE TABLE song_info (
     name        VARCHAR(255) NOT NULL, 
     artist      VARCHAR(255) NOT NULL,
     year        INT,
-	popularity  INT,
-	url			VARCHAR(255),
-	source      VARCHAR(255) CHECK (source IN ('msd', 'spotify'))
+    popularity  INT,
+    url		VARCHAR(255),
+    source      VARCHAR(255) CHECK (source IN ('msd', 'spotify'))
 );
 
 CREATE TABLE song_vectors (
