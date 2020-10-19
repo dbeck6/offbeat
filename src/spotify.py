@@ -118,7 +118,6 @@ def main():
     print(songs[0].get('artist'))
     print(songs[0].get('popularity'))
     print(songs[0].get('url'))
-    #print(songs[0].get('chroma'))
 
 if (__name__ == '__main__'):
     
