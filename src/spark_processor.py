@@ -57,9 +57,6 @@ class SparkProcessor:
         self.db_writer = PostgresConnector()
 
         if (self.data_source == 'msd'):
-            # grabbing from file path on s3 and downloading to df
-            #song_data_df = self.fetcher.get_keys(folder)
-            #self.fetcher.download_files(song_data_df)
             self.interface = MSDInterface()
         elif (self.data_source == 'spotify'):
             self.interface = SpotifyInterface()
